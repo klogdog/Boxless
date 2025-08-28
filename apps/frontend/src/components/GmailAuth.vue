@@ -89,10 +89,16 @@
             <h4>Database Sync</h4>
             <div class="test-controls">
               <button @click="syncToDatabase" :disabled="isLoading" class="test-btn primary">
-                Sync to Database
+                Quick Sync (50 emails)
+              </button>
+              <button @click="startBackgroundSync" :disabled="isLoading" class="test-btn primary">
+                Full Background Sync
               </button>
               <button @click="fetchStoredEmails" :disabled="isLoading" class="test-btn">
                 View Stored Emails
+              </button>
+              <button @click="checkSyncStatus" :disabled="isLoading" class="test-btn">
+                Check Sync Status
               </button>
             </div>
             
@@ -102,6 +108,25 @@
               <p><strong>User:</strong> {{ syncStatus.user_email }}</p>
               <p><strong>Labels:</strong> {{ syncStatus.labels.created }} created, {{ syncStatus.labels.total }} total</p>
               <p><strong>Emails:</strong> {{ syncStatus.emails.created }} created, {{ syncStatus.emails.updated }} updated, {{ syncStatus.emails.total }} total</p>
+            </div>
+
+            <!-- Background Sync Status -->
+            <div v-if="backgroundSyncStatus" class="sync-result">
+              <h5>Background Sync Status:</h5>
+              <p><strong>Status:</strong> 
+                <span :class="getStatusClass(backgroundSyncStatus.status)">
+                  {{ backgroundSyncStatus.status }}
+                </span>
+              </p>
+              <p v-if="backgroundSyncStatus.last_sync">
+                <strong>Last Sync:</strong> {{ formatDate(backgroundSyncStatus.last_sync) }}
+              </p>
+              <p v-if="backgroundSyncStatus.emails_synced">
+                <strong>Emails Synced:</strong> {{ backgroundSyncStatus.emails_synced }}
+              </p>
+              <p v-if="backgroundSyncStatus.error_message" class="error-text">
+                <strong>Error:</strong> {{ backgroundSyncStatus.error_message }}
+              </p>
             </div>
           </div>        <!-- Labels Display -->
         <div v-if="labels.length > 0" class="results">
@@ -179,9 +204,11 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 
 // Use the current host to determine API base URL
-const API_BASE = window.location.hostname === 'localhost' 
-  ? 'http://localhost:8000' 
-  : 'http://127.0.0.1:8000'
+const API_BASE = import.meta.env.PROD 
+  ? window.location.origin  // In production, API is served from same origin
+  : window.location.hostname === 'localhost' 
+    ? 'http://localhost:8000' 
+    : 'http://127.0.0.1:8000'
 
 // Reactive state
 const isAuthenticated = ref(false)
@@ -195,6 +222,7 @@ const singleEmail = ref<any>(null)
 const syncStatus = ref<any>(null)
 const storedEmails = ref<Array<any>>([])
 const showStoredEmails = ref(false)
+const backgroundSyncStatus = ref<any>(null)
 
 // Helper function to clear messages
 const clearMessages = () => {
@@ -341,6 +369,53 @@ const fetchStoredEmails = async () => {
   } finally {
     isLoading.value = false
   }
+}
+
+// Start background sync
+const startBackgroundSync = async () => {
+  try {
+    clearMessages()
+    isLoading.value = true
+    
+    const response = await axios.post(`${API_BASE}/gmail/sync-background`)
+    successMessage.value = 'Background sync started! This will sync all your emails in the background.'
+    
+    // Check status after a short delay
+    setTimeout(() => {
+      checkSyncStatus()
+    }, 2000)
+    
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || 'Failed to start background sync'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Check sync status
+const checkSyncStatus = async () => {
+  try {
+    // For demo purposes, use user ID 1. In production, get from session
+    const response = await axios.get(`${API_BASE}/sync/status/1`)
+    backgroundSyncStatus.value = response.data
+    
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || 'Failed to check sync status'
+  }
+}
+
+// Helper functions
+const getStatusClass = (status: string) => {
+  switch (status) {
+    case 'completed': return 'status-success'
+    case 'running': return 'status-running'
+    case 'failed': return 'status-error'
+    default: return 'status-neutral'
+  }
+}
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleString()
 }
 
 // Check auth status on component mount
@@ -747,5 +822,29 @@ onUnmounted(() => {
 
 .loading-message small {
   color: #666;
+}
+
+.status-success {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.status-running {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.status-error {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.status-neutral {
+  color: #6c757d;
+  font-weight: bold;
+}
+
+.error-text {
+  color: #dc3545;
 }
 </style>

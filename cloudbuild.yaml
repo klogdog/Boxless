@@ -1,0 +1,38 @@
+# Cloud Build configuration for automated deployment
+steps:
+  # Build Frontend
+  - name: 'node:18'
+    entrypoint: 'npm'
+    args: ['install']
+    dir: 'apps/frontend'
+    
+  - name: 'node:18'
+    entrypoint: 'npm'
+    args: ['run', 'build']
+    dir: 'apps/frontend'
+    
+  # Install Python dependencies
+  - name: 'python:3.11'
+    entrypoint: 'pip'
+    args: ['install', '-r', 'requirements.txt']
+    dir: 'apps/backend'
+    
+  # Run database migrations
+  - name: 'python:3.11'
+    entrypoint: 'python'
+    args: ['migrate.py']
+    dir: 'apps/backend'
+    env:
+      - 'DATABASE_URL=postgresql://boxless:$$DB_PASSWORD@/boxless_db?host=/cloudsql/$$PROJECT_ID:$$REGION:boxless-db'
+    
+  # Deploy to App Engine
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['app', 'deploy', '--quiet']
+    
+# Substitutions for environment variables
+substitutions:
+  _PROJECT_ID: '${PROJECT_ID}'
+  _REGION: 'us-central1'
+  _DB_PASSWORD: '${_DB_PASSWORD}'
+
+timeout: 1200s

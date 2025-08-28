@@ -9,5 +9,19 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'static',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['vue', 'axios']
+        }
+      }
+    }
+  },
+  define: {
+    __VUE_PROD_DEVTOOLS__: false
   }
 })

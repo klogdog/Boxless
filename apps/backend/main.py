@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -10,17 +11,36 @@ from sqlalchemy import select
 
 from gmail_service import GmailService
 from database import get_db, get_async_db
-from models import User, Email, Label, Attachment
+from models import User, Email, Label, Attachment, SyncStatus
 from crud import UserCRUD, EmailCRUD, LabelCRUD, sync_emails_to_db, sync_labels_to_db
+from background_sync import sync_manager
 
 load_dotenv()
 
 app = FastAPI(title="Boxless Backend", version="0.1.0")
 
+# Mount static files for production (frontend build)
+if os.path.exists("apps/frontend/dist"):
+    app.mount("/static", StaticFiles(directory="apps/frontend/dist", html=True), name="static")
+
+# CORS configuration
+origins = [
+    "http://127.0.0.1:5173", 
+    "http://localhost:5173", 
+    "http://localhost:8000", 
+    "http://127.0.0.1:8000"
+]
+
+# Add production domain if available
+if os.getenv("FRONTEND_URL"):
+    origins.append(os.getenv("FRONTEND_URL"))
+if os.getenv("BACKEND_URL"):
+    origins.append(os.getenv("BACKEND_URL"))
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:8000"],  # Frontend URLs
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -223,3 +243,81 @@ async def get_stored_emails(limit: int = 50, db = Depends(get_async_db)):
         return {"emails": email_list, "total": len(email_list)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Background sync endpoints
+@app.post("/gmail/sync-background")
+async def start_background_sync(db = Depends(get_async_db)):
+    """Start background sync for authenticated user"""
+    try:
+        # Get current user (in production, use proper session management)
+        result = await db.execute(select(User).limit(1))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="No user found. Please authenticate first.")
+        
+        # Schedule background sync
+        await sync_manager.schedule_user_sync(user.id)
+        
+        return {
+            "message": "Background sync started",
+            "user_id": user.id,
+            "status": "scheduled"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/tasks/sync-user")
+async def sync_user_task(request: dict):
+    """Cloud Task endpoint for user sync"""
+    try:
+        user_id = request.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id required")
+        
+        result = await sync_manager.sync_user_emails(user_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/tasks/sync-all-users")
+async def sync_all_users_task():
+    """Cloud Task endpoint for syncing all users"""
+    try:
+        await sync_manager.sync_all_active_users()
+        return {"message": "Scheduled sync for all active users"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sync/status/{user_id}")
+async def get_sync_status(user_id: int, db = Depends(get_async_db)):
+    """Get sync status for a user"""
+    try:
+        from crud import SyncCRUD
+        result = await db.execute(
+            select(SyncStatus).where(SyncStatus.user_id == user_id)
+        )
+        sync_status = result.scalar_one_or_none()
+        
+        if not sync_status:
+            return {"status": "never_synced"}
+        
+        return {
+            "status": sync_status.sync_status,
+            "last_sync": sync_status.last_sync.isoformat() if sync_status.last_sync else None,
+            "emails_synced": sync_status.emails_synced,
+            "error_message": sync_status.error_message
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Serve frontend in production
+@app.get("/")
+async def serve_frontend():
+    """Serve frontend application"""
+    if os.path.exists("apps/frontend/dist/index.html"):
+        with open("apps/frontend/dist/index.html", "r") as f:
+            content = f.read()
+        return HTMLResponse(content=content)
+    else:
+        return {"message": "Boxless Backend API", "docs": "/docs"}

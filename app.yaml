@@ -1,0 +1,40 @@
+# Google Cloud App Engine configuration
+runtime: python311
+
+env_variables:
+  # Database Configuration (Cloud SQL)
+  DATABASE_URL: postgresql://boxless:${DB_PASSWORD}@/boxless_db?host=/cloudsql/${PROJECT_ID}:${REGION}:boxless-db
+  ASYNC_DATABASE_URL: postgresql+asyncpg://boxless:${DB_PASSWORD}@/boxless_db?host=/cloudsql/${PROJECT_ID}:${REGION}:boxless-db
+  
+  # Gmail API Configuration
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+  GOOGLE_REDIRECT_URI: https://${PROJECT_ID}.appspot.com/oauth2/callback
+  
+  # Application Configuration
+  BACKEND_URL: https://${PROJECT_ID}.appspot.com
+  FRONTEND_URL: https://${PROJECT_ID}.appspot.com
+  SECRET_KEY: ${SECRET_KEY}
+  ENVIRONMENT: production
+  
+  # Background Jobs
+  ENABLE_BACKGROUND_SYNC: true
+  SYNC_INTERVAL_MINUTES: 30
+
+# Static files for frontend
+handlers:
+- url: /static
+  static_dir: apps/frontend/dist
+  
+- url: /.*
+  script: auto
+  
+# Instance configuration
+instance_class: F2
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+
+# Cloud SQL connection
+beta_settings:
+  cloud_sql_instances: ${PROJECT_ID}:${REGION}:boxless-db
