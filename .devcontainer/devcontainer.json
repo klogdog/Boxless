@@ -1,0 +1,45 @@
+
+{
+  "name": "Boxless Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+  "ghcr.io/devcontainers-extra/features/poetry:2": {
+      "version": "latest",
+      "venv": "false"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-vscode.vscode-typescript-next",
+        "vue.volar",
+        "ms-vscode.vscode-json",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-eslint",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "python",
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "vue.format.defaultFormatterOptions": {
+          "js-beautify-html": {
+            "wrap_line_length": 120,
+            "wrap_attributes": "auto"
+          }
+        }
+      }
+    }
+  },
+  "forwardPorts": [5173, 8000],
+  "postCreateCommand": "cd apps/frontend && corepack enable && yarn install && cd ../backend && poetry config virtualenvs.create false && poetry install",
+  "remoteUser": "node",
+  "privileged": false
+}

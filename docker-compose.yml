@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: ./apps/frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    networks:
+      - boxless-network
+
+  backend:
+    build: ./apps/backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/backend:/app
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - boxless-network
+
+networks:
+  boxless-network:
+    driver: bridge
