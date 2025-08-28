@@ -6,10 +6,13 @@ node_modules/
 credentials.json
 token.pickle
 .env
+.env.local
+.env.production
 *.key
 *.pem
 client_secret*.json
 oauth2_credentials.json
+secrets/
 
 # Python
 __pycache__/

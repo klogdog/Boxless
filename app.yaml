@@ -3,17 +3,17 @@ runtime: python311
 
 env_variables:
   # Database Configuration (Cloud SQL)
-  DATABASE_URL: postgresql://boxless:${DB_PASSWORD}@/boxless_db?host=/cloudsql/${PROJECT_ID}:${REGION}:boxless-db
-  ASYNC_DATABASE_URL: postgresql+asyncpg://boxless:${DB_PASSWORD}@/boxless_db?host=/cloudsql/${PROJECT_ID}:${REGION}:boxless-db
+  DATABASE_URL: postgresql://boxless:${DB_PASSWORD}@/boxless_db?host=/cloudsql/inboxzero-468900:us-central1:boxless-db
+  ASYNC_DATABASE_URL: postgresql+asyncpg://boxless:${DB_PASSWORD}@/boxless_db?host=/cloudsql/inboxzero-468900:us-central1:boxless-db
   
-  # Gmail API Configuration
+  # Gmail API Configuration - DO NOT COMMIT ACTUAL VALUES
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-  GOOGLE_REDIRECT_URI: https://${PROJECT_ID}.appspot.com/oauth2/callback
+  GOOGLE_REDIRECT_URI: https://inboxzero-468900.appspot.com/oauth2/callback
   
   # Application Configuration
-  BACKEND_URL: https://${PROJECT_ID}.appspot.com
-  FRONTEND_URL: https://${PROJECT_ID}.appspot.com
+  BACKEND_URL: https://inboxzero-468900.appspot.com
+  FRONTEND_URL: https://inboxzero-468900.appspot.com
   SECRET_KEY: ${SECRET_KEY}
   ENVIRONMENT: production
   
@@ -37,4 +37,4 @@ automatic_scaling:
 
 # Cloud SQL connection
 beta_settings:
-  cloud_sql_instances: ${PROJECT_ID}:${REGION}:boxless-db
+  cloud_sql_instances: inboxzero-468900:us-central1:boxless-db
