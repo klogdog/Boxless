@@ -23,7 +23,7 @@
           :disabled="isLoading"
           class="auth-btn primary"
         >
-          <span v-if="isLoading">Connecting...</span>
+          <span v-if="isLoading">Waiting for authentication...</span>
           <span v-else>Connect Gmail Account</span>
         </button>
         
@@ -34,6 +34,12 @@
         >
           Disconnect
         </button>
+      </div>
+
+      <!-- Loading Message -->
+      <div v-if="isLoading && !isAuthenticated" class="loading-message">
+        <p>🔐 Please complete authentication in the popup window</p>
+        <p><small>If no popup appeared, please check your popup blocker settings</small></p>
       </div>
 
       <!-- Error Display -->
@@ -169,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 
 // Use the current host to determine API base URL
@@ -209,18 +215,20 @@ const startAuth = async () => {
     // Open authorization URL in new window
     const authWindow = window.open(authUrl, 'gmail-auth', 'width=500,height=600')
     
-    // Listen for the callback
-    const checkClosed = setInterval(() => {
-      if (authWindow?.closed) {
-        clearInterval(checkClosed)
-        // Check if authentication was successful
-        checkAuthStatus()
+    // Set a timeout to stop loading if no response is received
+    const authTimeout = setTimeout(() => {
+      isLoading.value = false
+      if (authWindow && !authWindow.closed) {
+        authWindow.close()
       }
-    }, 1000)
+      error.value = 'Authentication timeout. Please try again.'
+    }, 30000) // 30 second timeout
+    
+    // Store timeout reference for cleanup
+    ;(window as any).authTimeout = authTimeout
     
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to start authentication'
-  } finally {
     isLoading.value = false
   }
 }
@@ -341,11 +349,41 @@ onMounted(() => {
 })
 
 // Listen for OAuth callback (if using popup)
-window.addEventListener('message', (event) => {
-  if (event.origin !== window.location.origin) return
+const handleAuthMessage = (event: MessageEvent) => {
+  // Allow messages from the same origin or the backend origin
+  const allowedOrigins = [
+    window.location.origin,
+    API_BASE,
+    'http://127.0.0.1:8000',
+    'http://localhost:8000'
+  ]
+  
+  if (!allowedOrigins.includes(event.origin)) return
   
   if (event.data.type === 'GMAIL_AUTH_SUCCESS') {
+    // Clear any pending timeout
+    if ((window as any).authTimeout) {
+      clearTimeout((window as any).authTimeout)
+      delete (window as any).authTimeout
+    }
+    
+    // Stop loading and check auth status
+    isLoading.value = false
     checkAuthStatus()
+    successMessage.value = 'Authentication completed successfully!'
+  }
+}
+
+window.addEventListener('message', handleAuthMessage)
+
+// Cleanup on component unmount
+onUnmounted(() => {
+  window.removeEventListener('message', handleAuthMessage)
+  
+  // Clear any pending timeout
+  if ((window as any).authTimeout) {
+    clearTimeout((window as any).authTimeout)
+    delete (window as any).authTimeout
   }
 })
 </script>
@@ -691,5 +729,23 @@ window.addEventListener('message', (event) => {
 
 .email-status {
   margin: 0.25rem 0;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 1rem;
+  background: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 8px;
+  margin: 1rem 0;
+  color: #1565c0;
+}
+
+.loading-message p {
+  margin: 0.5rem 0;
+}
+
+.loading-message small {
+  color: #666;
 }
 </style>
