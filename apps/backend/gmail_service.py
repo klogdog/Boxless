@@ -19,7 +19,7 @@ class GmailService:
         ]
         self.credentials_file = 'credentials.json'
         self.token_file = 'token.pickle'
-        self.redirect_uri = 'http://127.0.0.1:8000/gmail/callback'
+        self.redirect_uri = 'http://127.0.0.1:8000/oauth2/callback'
         
     def get_authorization_url(self) -> str:
         """Generate Google OAuth authorization URL"""
@@ -168,6 +168,19 @@ class GmailService:
         labels = results.get('labels', [])
         
         return [{'id': label['id'], 'name': label['name']} for label in labels]
+    
+    def get_single_email(self, email_id: str) -> Dict[str, Any]:
+        """Get a single email by ID"""
+        service = self.get_service()
+        
+        # Get full message details
+        msg = service.users().messages().get(
+            userId='me', 
+            id=email_id,
+            format='full'
+        ).execute()
+        
+        return self._parse_email(msg)
     
     def send_email(self, to: str, subject: str, body: str) -> Dict[str, Any]:
         """Send an email"""

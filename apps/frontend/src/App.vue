@@ -1,46 +1,47 @@
 <script setup lang="ts">
-import TheWelcome from './components/TheWelcome.vue'
+import GmailAuth from './components/GmailAuth.vue'
 </script>
 
 <template>
-  <div>
+  <div id="app">
     <header>
-      <img alt="Vue logo" class="logo" src="@/assets/vue.svg" width="125" height="125" />
-
-      <div class="wrapper">
-        <HelloWorld msg="You did it!" />
-      </div>
+      <h1>Boxless - Gmail API Integration</h1>
     </header>
-
+    
     <main>
-      <TheWelcome />
+      <div class="container">
+        <GmailAuth />
+      </div>
     </main>
   </div>
 </template>
 
 <style scoped>
+#app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 header {
-  line-height: 1.5;
-  max-height: 100vh;
-  display: flex;
-  place-items: center;
-  flex-wrap: wrap;
+  padding: 2rem 0;
+  text-align: center;
+  color: white;
 }
 
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
+header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 300;
 }
 
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: nowrap;
-  }
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
 
-  .logo {
-    margin: 0 2rem 0 0;
-  }
+main {
+  padding: 2rem 0;
 }
 </style>
