@@ -5,8 +5,13 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from gmail_service import GmailService
+from database import get_db, get_async_db
+from models import User, Email, Label, Attachment
+from crud import UserCRUD, EmailCRUD, LabelCRUD, sync_emails_to_db, sync_labels_to_db
 
 load_dotenv()
 
@@ -149,5 +154,72 @@ async def get_single_email(email_id: str):
         gmail_service = GmailService()
         email = gmail_service.get_single_email(email_id)
         return email
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Database sync endpoints
+@app.post("/gmail/sync")
+async def sync_gmail_data(db = Depends(get_async_db)):
+    """Sync Gmail data to local database"""
+    try:
+        gmail_service = GmailService()
+        
+        # Get user info from Gmail (you might want to store user session)
+        profile = gmail_service.get_profile()
+        user_email = profile.get('emailAddress')
+        
+        if not user_email:
+            raise HTTPException(status_code=400, detail="Could not get user email from Gmail")
+        
+        # Get or create user
+        user = await UserCRUD.get_user_by_email(db, user_email)
+        if not user:
+            # Use email as gmail_user_id if no separate ID is available
+            gmail_user_id = profile.get('emailAddress', user_email)
+            user = await UserCRUD.create_user(db, user_email, gmail_user_id)
+        
+        # Sync labels
+        labels = gmail_service.get_labels()
+        label_sync_result = await sync_labels_to_db(db, user.id, labels)
+        
+        # Sync emails (get recent emails)
+        emails = gmail_service.get_emails(max_results=50)
+        email_sync_result = await sync_emails_to_db(db, user.id, emails)
+        
+        return {
+            "message": "Sync completed successfully",
+            "user_email": user_email,
+            "labels": label_sync_result,
+            "emails": email_sync_result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/db/emails")
+async def get_stored_emails(limit: int = 50, db = Depends(get_async_db)):
+    """Get emails from local database"""
+    try:
+        # For now, get the first user (in a real app, you'd use session management)
+        result = await db.execute(select(User).limit(1))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="No user found. Please sync data first.")
+        
+        emails = await EmailCRUD.get_emails_by_user(db, user.id, limit)
+        
+        # Convert to dict format
+        email_list = []
+        for email in emails:
+            email_list.append({
+                "id": email.gmail_message_id,
+                "subject": email.subject,
+                "sender": email.sender,
+                "date": email.date_received.isoformat() if email.date_received else None,
+                "body": email.snippet,
+                "is_read": email.is_read
+            })
+        
+        return {"emails": email_list, "total": len(email_list)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: boxless_db
+      POSTGRES_USER: boxless
+      POSTGRES_PASSWORD: boxless
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boxless -d boxless_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - boxless-network
+
   frontend:
     build: ./apps/frontend
     ports:
@@ -21,9 +39,17 @@ services:
       - ./apps/backend:/app
     environment:
       - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://boxless:boxless@postgres:5432/boxless_db
+      - ASYNC_DATABASE_URL=postgresql+asyncpg://boxless:boxless@postgres:5432/boxless_db
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - boxless-network
 
 networks:
   boxless-network:
     driver: bridge
+
+volumes:
+  postgres_data:

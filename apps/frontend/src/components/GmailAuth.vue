@@ -76,6 +76,27 @@
                 Get Email
               </button>
             </div>
+          </div>
+
+          <!-- Database Sync Section -->
+          <div class="sync-section">
+            <h4>Database Sync</h4>
+            <div class="test-controls">
+              <button @click="syncToDatabase" :disabled="isLoading" class="test-btn primary">
+                Sync to Database
+              </button>
+              <button @click="fetchStoredEmails" :disabled="isLoading" class="test-btn">
+                View Stored Emails
+              </button>
+            </div>
+            
+            <!-- Sync Status -->
+            <div v-if="syncStatus" class="sync-result">
+              <h5>Last Sync Result:</h5>
+              <p><strong>User:</strong> {{ syncStatus.user_email }}</p>
+              <p><strong>Labels:</strong> {{ syncStatus.labels.created }} created, {{ syncStatus.labels.total }} total</p>
+              <p><strong>Emails:</strong> {{ syncStatus.emails.created }} created, {{ syncStatus.emails.updated }} updated, {{ syncStatus.emails.total }} total</p>
+            </div>
           </div>        <!-- Labels Display -->
         <div v-if="labels.length > 0" class="results">
           <h4>Gmail Labels:</h4>
@@ -125,6 +146,23 @@
             </div>
           </div>
         </div>
+
+        <!-- Stored Emails Display -->
+        <div v-if="showStoredEmails && storedEmails.length > 0" class="results">
+          <h4>Stored Emails from Database:</h4>
+          <div class="emails-list">
+            <div v-for="email in storedEmails" :key="email.id" class="email-item">
+              <div class="email-subject">{{ email.subject }}</div>
+              <div class="email-sender">From: {{ email.sender }}</div>
+              <div class="email-date">{{ email.date }}</div>
+              <div class="email-status">
+                <span v-if="email.is_read" class="status-read">Read</span>
+                <span v-else class="status-unread">Unread</span>
+              </div>
+              <div class="email-id">ID: {{ email.id }}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -148,6 +186,9 @@ const labels = ref<Array<{id: string, name: string}>>([])
 const emails = ref<Array<{id: string, subject: string, sender: string, date: string}>>([])
 const emailIdInput = ref('')
 const singleEmail = ref<any>(null)
+const syncStatus = ref<any>(null)
+const storedEmails = ref<Array<any>>([])
+const showStoredEmails = ref(false)
 
 // Helper function to clear messages
 const clearMessages = () => {
@@ -251,6 +292,44 @@ const fetchSingleEmail = async () => {
     
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to fetch email'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Sync Gmail data to database
+const syncToDatabase = async () => {
+  try {
+    clearMessages()
+    isLoading.value = true
+    
+    const response = await axios.post(`${API_BASE}/gmail/sync`)
+    syncStatus.value = response.data
+    successMessage.value = 'Data synced to database successfully!'
+    
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || 'Failed to sync data to database'
+    syncStatus.value = null
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Fetch stored emails from database
+const fetchStoredEmails = async () => {
+  try {
+    clearMessages()
+    isLoading.value = true
+    
+    const response = await axios.get(`${API_BASE}/db/emails?limit=20`)
+    storedEmails.value = response.data.emails
+    showStoredEmails.value = true
+    successMessage.value = `Retrieved ${response.data.total} stored emails`
+    
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || 'Failed to fetch stored emails'
+    storedEmails.value = []
+    showStoredEmails.value = false
   } finally {
     isLoading.value = false
   }
@@ -563,5 +642,54 @@ window.addEventListener('message', (event) => {
 .email-labels h5 {
   margin: 0 0 0.5rem 0;
   color: #333;
+}
+
+.sync-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e9ecef;
+}
+
+.sync-result {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.sync-result h5 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.sync-result p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.test-btn.primary {
+  background: #28a745;
+  color: white;
+}
+
+.test-btn.primary:hover:not(:disabled) {
+  background: #218838;
+}
+
+.status-read {
+  color: #6c757d;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-unread {
+  color: #007bff;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.email-status {
+  margin: 0.25rem 0;
 }
 </style>

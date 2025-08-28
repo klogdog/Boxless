@@ -169,6 +169,19 @@ class GmailService:
         
         return [{'id': label['id'], 'name': label['name']} for label in labels]
     
+    def get_profile(self) -> Dict[str, Any]:
+        """Get user profile information"""
+        service = self.get_service()
+        
+        profile = service.users().getProfile(userId='me').execute()
+        
+        return {
+            'emailAddress': profile.get('emailAddress'),
+            'messagesTotal': profile.get('messagesTotal'),
+            'threadsTotal': profile.get('threadsTotal'),
+            'historyId': profile.get('historyId')
+        }
+    
     def get_single_email(self, email_id: str) -> Dict[str, Any]:
         """Get a single email by ID"""
         service = self.get_service()
