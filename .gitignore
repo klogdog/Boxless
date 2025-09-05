@@ -13,6 +13,7 @@ token.pickle
 client_secret*.json
 oauth2_credentials.json
 secrets/
+app.yaml  # Contains deployment configuration with secrets
 
 # Python
 __pycache__/
